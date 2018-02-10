@@ -1,0 +1,188 @@
+= axon snapshots problem  image:https://travis-ci.org/daggerok/axon-snapshots.svg?branch=master["Build Status", link="https://travis-ci.org/daggerok/axon-snapshots"]
+
+//tag::content[]
+
+.problem occurs if I'm trying use snapshots like so:
+[sources,kotlin]
+----
+@Bean
+fun snapshotterFactoryBean() = SpringAggregateSnapshotterFactoryBean()
+
+@Bean("axonChatRepository")
+fun axonChatSnapshotterRepository(eventStore: EventStore, snapshotter: Snapshotter): Repository<ChatAggregator> =
+    EventSourcingRepository(ChatAggregator::class.java, eventStore, EventCountSnapshotTriggerDefinition(snapshotter, amount))
+----
+
+.how to reproduce
+----
+# copy config with snapshotter
+cp -Rf src/main/java/daggerok/chat/AxonConfig.kt-w-shapshotter src/main/java/daggerok/chat/AxonConfig.kt
+
+./mvnw                  # or ./gradlew
+java -jar target/*.jar  # or: java -jar build/libs/*.jar
+
+http :8080/api/room roomId=my-room
+http put :8080/api/room/my-room/max
+http put :8080/api/room/my-room/valery
+http delete :8080/api/room/my-room/max
+http delete :8080/api/room/my-room/valery
+
+# log output:
+2018-02-10 04:37:20.852  INFO 76342 --- [nio-8080-exec-3] o.a.c.callbacks.LoggingCallback          : Command executed successfully: daggerok.chat.CreateRoomCommand
+2018-02-10 04:37:22.120  INFO 76342 --- [nio-8080-exec-7] o.a.c.callbacks.LoggingCallback          : Command executed successfully: daggerok.chat.EnterRoomCommand
+2018-02-10 04:37:22.717  INFO 76342 --- [nio-8080-exec-9] o.a.c.callbacks.LoggingCallback          : Command executed successfully: daggerok.chat.EnterRoomCommand
+2018-02-10 04:37:23.893  INFO 76342 --- [nio-8080-exec-3] o.a.c.callbacks.LoggingCallback          : Command executed successfully: daggerok.chat.LeaveRoomCommand
+
+# but after last command next failure will occurs!
+
+2018-02-10 04:37:24.470  WARN 76342 --- [nio-8080-exec-5] o.a.c.callbacks.LoggingCallback          : Command resulted in exception: daggerok.chat.LeaveRoomCommand
+
+org.axonframework.eventsourcing.IncompatibleAggregateException: Aggregate identifier must be non-null after applying an event. Make sure the aggregate identifier is initialized at the latest when handling the creation event.
+        at org.axonframework.eventsourcing.EventSourcedAggregate.publish(EventSourcedAggregate.java:160) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at java.util.Iterator.forEachRemaining(Iterator.java:116) ~[na:1.8.0_152]
+        at org.axonframework.eventsourcing.EventSourcedAggregate.lambda$initializeState$1(EventSourcedAggregate.java:212) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.model.inspection.AnnotatedAggregate.lambda$execute$2(AnnotatedAggregate.java:174) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.model.AggregateLifecycle.lambda$execute$3(AggregateLifecycle.java:199) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.model.AggregateLifecycle.executeWithResult(AggregateLifecycle.java:166) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.model.AggregateLifecycle.execute(AggregateLifecycle.java:198) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.model.inspection.AnnotatedAggregate.execute(AnnotatedAggregate.java:174) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.eventsourcing.EventSourcedAggregate.initializeState(EventSourcedAggregate.java:209) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.eventsourcing.EventSourcingRepository.doLoadWithLock(EventSourcingRepository.java:215) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.eventsourcing.EventSourcingRepository.doLoadWithLock(EventSourcingRepository.java:45) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.model.LockingRepository.doLoad(LockingRepository.java:162) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.model.LockingRepository.doLoad(LockingRepository.java:49) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.model.AbstractRepository.lambda$load$7(AbstractRepository.java:116) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at java.util.HashMap.computeIfAbsent(HashMap.java:1127) ~[na:1.8.0_152]
+        at org.axonframework.commandhandling.model.AbstractRepository.load(AbstractRepository.java:115) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.AggregateAnnotationCommandHandler$AggregateCommandHandler.handle(AggregateAnnotationCommandHandler.java:195) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.AggregateAnnotationCommandHandler$AggregateCommandHandler.handle(AggregateAnnotationCommandHandler.java:189) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.AggregateAnnotationCommandHandler.handle(AggregateAnnotationCommandHandler.java:151) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.AggregateAnnotationCommandHandler.handle(AggregateAnnotationCommandHandler.java:43) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.messaging.DefaultInterceptorChain.proceed(DefaultInterceptorChain.java:57) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.messaging.interceptors.CorrelationDataInterceptor.handle(CorrelationDataInterceptor.java:55) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.messaging.DefaultInterceptorChain.proceed(DefaultInterceptorChain.java:55) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.messaging.unitofwork.DefaultUnitOfWork.executeWithResult(DefaultUnitOfWork.java:69) ~[axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.SimpleCommandBus.handle(SimpleCommandBus.java:156) [axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.SimpleCommandBus.doDispatch(SimpleCommandBus.java:127) [axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.SimpleCommandBus.dispatch(SimpleCommandBus.java:91) [axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.gateway.AbstractCommandGateway.send(AbstractCommandGateway.java:79) [axon-core-3.1.2.jar!/:3.1.2]
+        at org.axonframework.commandhandling.gateway.DefaultCommandGateway.send(DefaultCommandGateway.java:95) [axon-core-3.1.2.jar!/:3.1.2]
+        at daggerok.chat.ChatCommandsResource.leaveRoom(ChatCommandsResource.java:40) [classes!/:0.0.1]
+        at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:1.8.0_152]
+        at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[na:1.8.0_152]
+        at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:1.8.0_152]
+        at java.lang.reflect.Method.invoke(Method.java:498) ~[na:1.8.0_152]
+        at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:205) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:133) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:97) [spring-webmvc-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:827) [spring-webmvc-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:738) [spring-webmvc-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:85) [spring-webmvc-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:967) [spring-webmvc-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:901) [spring-webmvc-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:970) [spring-webmvc-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.servlet.FrameworkServlet.doDelete(FrameworkServlet.java:894) [spring-webmvc-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at javax.servlet.http.HttpServlet.service(HttpServlet.java:667) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:846) [spring-webmvc-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at javax.servlet.http.HttpServlet.service(HttpServlet.java:742) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:231) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:52) [tomcat-embed-websocket-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.springframework.boot.web.filter.ApplicationContextHeaderFilter.doFilterInternal(ApplicationContextHeaderFilter.java:55) [spring-boot-1.5.10.RELEASE.jar!/:1.5.10.RELEASE]
+        at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:107) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.springframework.boot.actuate.trace.WebRequestTraceFilter.doFilterInternal(WebRequestTraceFilter.java:110) [spring-boot-actuator-1.5.10.RELEASE.jar!/:1.5.10.RELEASE]
+        at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:107) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:99) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:107) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.springframework.web.filter.HttpPutFormContentFilter.doFilterInternal(HttpPutFormContentFilter.java:108) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:107) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.springframework.web.filter.HiddenHttpMethodFilter.doFilterInternal(HiddenHttpMethodFilter.java:81) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:107) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:197) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:107) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.springframework.boot.actuate.autoconfigure.MetricsFilter.doFilterInternal(MetricsFilter.java:106) [spring-boot-actuator-1.5.10.RELEASE.jar!/:1.5.10.RELEASE]
+        at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:107) [spring-web-4.3.14.RELEASE.jar!/:4.3.14.RELEASE]
+        at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:193) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:199) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:96) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:504) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:140) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:81) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:87) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:342) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:803) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:66) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:790) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1459) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149) [na:1.8.0_152]
+        at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624) [na:1.8.0_152]
+        at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61) [tomcat-embed-core-8.5.27.jar!/:8.5.27]
+        at java.lang.Thread.run(Thread.java:748) [na:1.8.0_152]
+
+# and valery is still online
+http :8080/api/member
+{
+    "content": [
+        {
+            "memberId": "max",
+            "online": false
+        },
+        {
+            "memberId": "valery",
+            "online": true
+        }
+    ]
+}
+----
+
+.otherwise, if I'm disabling snapshots everything is working fine..
+----
+# copy config without snapshotter
+cp -Rf src/main/java/daggerok/chat/AxonConfig.kt-wo-shapshotter src/main/java/daggerok/chat/AxonConfig.kt
+
+./gradlew
+java -jar build/libs/*jar
+
+http :8080/api/room roomId=my-room
+http put :8080/api/room/my-room/max
+http put :8080/api/room/my-room/valery
+http delete :8080/api/room/my-room/max
+http delete :8080/api/room/my-room/valery
+http :8080/api/member
+
+http :8080/api/member
+{
+    "content": [
+        {
+            "memberId": "max",
+            "online": false
+        },
+        {
+            "memberId": "valery",
+            "online": false
+        }
+    ],
+}
+----
+
+links:
+
+. link:https://www.youtube.com/watch?v=IhLSwCRyrcw[Live coding building and distributing an Axon 3 based application]
+
+//end::content[]
