@@ -46,7 +46,14 @@ public class MembersProjection {
   }
 
   @GetMapping("/api/member/{roomId}")
-  public MemberQueryModel queryOne(final @PathVariable String roomId) {
-    return repository.findOne(roomId);
+  public Page<MemberQueryModel> queryRoomMembers(final @PathVariable String roomId,
+                                                 final Pageable pageable) {
+
+    return repository.findAllByRoomId(roomId, pageable);
+  }
+
+  @GetMapping("/api/member/{memberId}")
+  public MemberQueryModel queryOne(final @PathVariable String memberId) {
+    return repository.findOne(memberId);
   }
 }

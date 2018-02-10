@@ -42,9 +42,9 @@ public class ChatCommandsResource {
 
   @ResponseStatus(CREATED)
   @PostMapping("/api/room/{roomId}/{memberId}")
-  public void leaveRoom(@PathVariable final String roomId,
-                        @PathVariable final String memberId,
-                        @RequestBody final Map<String, String> message) {
+  public void sendMessage(@PathVariable final String roomId,
+                          @PathVariable final String memberId,
+                          @RequestBody final Map<String, String> message) {
 
     commandGateway.send(new PostMessageCommand(roomId, memberId, message.get("message")), LoggingCallback.INSTANCE);
   }

@@ -14,7 +14,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @Accessors(chain = true)
 public class ChatMessageQueryModel implements Serializable {
-  private static final long serialVersionUID = 3395320914636821041L;
+  private static final long serialVersionUID = -7911730354041619606L;
 
   @Id String messageId;
   String roomId, memberId, messageBody;
