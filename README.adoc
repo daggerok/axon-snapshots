@@ -183,6 +183,7 @@ http :8080/api/member
 
 links:
 
+. link:https://groups.google.com/forum/#!topic/axonframework/OCE6kEotDmQ[According question in Axon google group]
 . link:https://www.youtube.com/watch?v=IhLSwCRyrcw[Live coding building and distributing an Axon 3 based application]
 
 //end::content[]
