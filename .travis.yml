@@ -37,4 +37,5 @@ script:
 - http delete :8080/api/room/my-room/max
 - http delete :8080/api/room/my-room/valery
 - http :8080/api/member
+- http :8080/my-room
 - stop_any 8080
