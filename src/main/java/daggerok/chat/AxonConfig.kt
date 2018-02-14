@@ -78,7 +78,8 @@ class AxonConfig {
   }
 
   @Bean // required by eventStorageEngine
-  fun serializer(): Serializer = JacksonSerializer(objectMapper()) //XStreamSerializer()
+//  fun serializer(): Serializer = XStreamSerializer()
+  fun serializer(): Serializer = JacksonSerializer(objectMapper())
 
   @Bean("axonMongoTemplate")
   fun axonMongoTemplate(mongoClient: MongoClient, @Value("\${spring.datasource.name}") name: String): MongoTemplate =
