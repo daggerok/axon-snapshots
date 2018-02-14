@@ -74,8 +74,6 @@ class AxonConfig {
   fun objectMapper(): ObjectMapper {
     val objectMapper = ObjectMapper()
     objectMapper.setVisibility(FIELD, ANY)
-    //objectMapper.enable(FAIL_ON_EMPTY_BEANS)
-    objectMapper.disable(WRITE_DATES_AS_TIMESTAMPS, FAIL_ON_EMPTY_BEANS)
     return objectMapper
   }
 
