@@ -9,8 +9,11 @@ import org.springframework.http.HttpStatus.OK
 import org.springframework.http.MediaType.APPLICATION_JSON_UTF8_VALUE
 import org.springframework.web.bind.annotation.*
 import java.util.stream.Collectors
+import java.util.stream.Collectors.toList
+import java.util.stream.StreamSupport
 
 @RestController
+@RequestMapping(produces = [APPLICATION_JSON_UTF8_VALUE])
 class EventsProjection(val eventStore: EventStore,
                        val mongoClient: MongoClient,
                        @Value("\${spring.datasource.name}") val name: String) {
@@ -24,9 +27,25 @@ class EventsProjection(val eventStore: EventStore,
 
   @ResponseStatus(OK)
   @DateTimeFormat(iso = DATE_TIME)
-  @GetMapping(path = ["", "/"], produces = [APPLICATION_JSON_UTF8_VALUE])
+  @GetMapping(path = ["", "/"])
   fun index(@RequestParam(name = "collection", defaultValue = "snapshots") collection: String) =
-      mongoClient.getDatabase(name)
-          .getCollection(collection)
-          .find()
+      StreamSupport.stream(
+          mongoClient
+              .getDatabase(name)
+              .getCollection(collection)
+              .find().map {
+                mapOf(
+                    "_id" to it["_id"],
+                    "aggregateIdentifier" to it["aggregateIdentifier"],
+                    "eventIdentifier" to it["eventIdentifier"],
+                    "timestamp" to it["timestamp"],
+                    "sequenceNumber" to it["sequenceNumber"],
+                    "type" to it["type"],
+                    "payloadType" to it["payloadType"],
+                    "serializedPayload" to it["serializedPayload"]
+                )
+              }
+              .spliterator(),
+          true
+      ).collect(toList())
 }

@@ -181,6 +181,36 @@ http :8080/api/member
 }
 ----
 
+.fix snapshotter solution
+----
+# copy config without snapshotter
+cp -Rf src/main/java/daggerok/chat/AxonConfig.kt-fix-snapshotter src/main/java/daggerok/chat/AxonConfig.kt
+
+./gradlew
+java -jar build/libs/*jar
+
+http :8080/api/room roomId=my-room
+http put :8080/api/room/my-room/max
+http put :8080/api/room/my-room/valery
+http delete :8080/api/room/my-room/max
+http delete :8080/api/room/my-room/valery
+http :8080/api/member/room/my-room
+
+http :8080/api/member/room/my-room
+{
+    "content": [
+        {
+            "memberId": "max",
+            "online": false
+        },
+        {
+            "memberId": "valery",
+            "online": false
+        }
+    ],
+}
+----
+
 links:
 
 . link:https://groups.google.com/forum/#!topic/axonframework/OCE6kEotDmQ[According question in Axon google group]

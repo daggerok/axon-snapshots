@@ -4,6 +4,8 @@ buildscript {
     kotlinVersion = "1.2.21"
     springBootVersion = "1.5.10.RELEASE"
     axonVersion = "3.1.2"
+    ehcacheVersion = "2.8.3"
+    ehcacheJcacheVersion = "1.5.0-0.5"
   }
   repositories {
     mavenCentral()
@@ -56,6 +58,10 @@ dependencies {
   compile("org.axonframework:axon-mongo:$axonVersion")
   compile("de.flapdoodle.embed:de.flapdoodle.embed.mongo")
   compile("org.springframework.boot:spring-boot-starter-data-mongodb")
+
+  compile("org.springframework.boot:spring-boot-starter-cache")
+  compile("net.sf.ehcache:ehcache:$ehcacheVersion")
+  compile("net.sf.ehcache:ehcache-jcache:$ehcacheJcacheVersion")
 
   compile("org.springframework.boot:spring-boot-starter-actuator")
   compile("org.springframework.boot:spring-boot-starter-web")

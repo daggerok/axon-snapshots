@@ -5,7 +5,10 @@ import org.axonframework.commandhandling.CommandHandler;
 import org.axonframework.commandhandling.model.AggregateIdentifier;
 import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.spring.stereotype.Aggregate;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -13,8 +16,11 @@ import static java.util.stream.Collectors.toList;
 import static org.axonframework.commandhandling.model.AggregateLifecycle.apply;
 
 @NoArgsConstructor
+@Component("axonChatAggregator")
 @Aggregate(repository = "axonChatRepository")
-public class ChatAggregator {
+public class ChatAggregator implements Serializable {
+
+  private static final transient long serialVersionUID = -3559510734736559985L;
 
   @AggregateIdentifier
   private String roomId;
